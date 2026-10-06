@@ -18,14 +18,30 @@ export async function assemble(segments, brief, outFile) {
   const total = segments.reduce((a, s) => a + s.duration, 0) - XFADE * (n - 1);
   const music = path.join(ROOT, 'assets', 'music', MUSIC[brief.tone] || MUSIC.upbeat);
 
+  // Inputs: segments, then music, then one looped still per keyword overlay.
   const inputs = [];
   for (const s of segments) inputs.push('-i', s.file);
   inputs.push('-i', music);
+  const ovIndex = {};
+  let inputCount = n + 1; // segments + music
+  segments.forEach((s, i) => {
+    if (!s.overlay) return;
+    ovIndex[i] = inputCount++;
+    inputs.push('-loop', '1', '-framerate', '30', '-t', String(s.duration), '-i', s.overlay);
+  });
 
   // Normalize every segment (Seedance output may differ in fps/size), then chain xfades.
   const parts = [];
   for (let i = 0; i < n; i++) {
-    parts.push(`[${i}:v]fps=30,scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p,trim=duration=${segments[i].duration},setpts=PTS-STARTPTS[v${i}]`);
+    const d = segments[i].duration;
+    if (ovIndex[i] !== undefined) {
+      // Footage with a keyword: overlay fades in after 0.6s and out before the crossfade.
+      parts.push(`[${i}:v]fps=30,scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,setsar=1,trim=duration=${d},setpts=PTS-STARTPTS[b${i}]`);
+      parts.push(`[${ovIndex[i]}:v]format=rgba,fade=t=in:st=0.6:d=0.5:alpha=1,fade=t=out:st=${(d - 0.9).toFixed(2)}:d=0.4:alpha=1[o${i}]`);
+      parts.push(`[b${i}][o${i}]overlay=0:0:shortest=1,format=yuv420p[v${i}]`);
+    } else {
+      parts.push(`[${i}:v]fps=30,scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p,trim=duration=${d},setpts=PTS-STARTPTS[v${i}]`);
+    }
   }
   let prev = 'v0', offset = 0;
   for (let i = 1; i < n; i++) {

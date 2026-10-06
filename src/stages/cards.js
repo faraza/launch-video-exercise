@@ -27,11 +27,22 @@ export async function renderCards(brief, cap, workDir, outDir) {
   const results = {};
   for (let i = 0; i < brief.shots.length; i++) {
     const shot = brief.shots[i];
-    if (shot.kind === 'screen') continue;
+    if (shot.kind === 'screen' || shot.kind === 'scene') continue;
     const seg = path.join(workDir, `seg-${String(i).padStart(2, '0')}.mp4`);
     await renderCard(page, cardHtml(shot, brief, cap), shot.duration, path.join(workDir, `frames-${i}`), seg);
     results[i] = seg;
     log('cards', `${shot.kind} card ${i} -> ${path.basename(seg)}`);
+  }
+
+  // Keyword overlays for footage scenes: transparent PNGs composited in assemble.
+  for (let i = 0; i < brief.shots.length; i++) {
+    const shot = brief.shots[i];
+    if (shot.kind !== 'scene' || !shot.keyword) continue;
+    const file = path.join(workDir, `ov-${String(i).padStart(2, '0')}.png`);
+    await page.setContent(overlayHtml(shot, brief, cap), { waitUntil: 'load' });
+    await page.evaluate(() => document.fonts.ready);
+    await page.screenshot({ path: file, omitBackground: true });
+    results[`ov${i}`] = file;
   }
 
   // Poster: the title card at the end of its intro animation.
@@ -148,4 +159,22 @@ h1{margin:0;font-family:${useFont};font-weight:${st.headingWeight};line-height:$
 @keyframes grow{to{width:180px}}
 @keyframes drift{from{transform:translate(0,0)}to{transform:translate(-120px,80px)}}
 </style></head><body><div class="glow"></div><div class="wrap">${body}</div></body></html>`;
+}
+
+// Lower-left keyword over generated footage: a soft dark gradient for legibility, the product
+// name as a small accent-colored eyebrow, one keyword in the site's heading font.
+export function overlayHtml(shot, brief, cap) {
+  const st = brief.style;
+  const kw = shot.keyword || '';
+  const cjk = /[぀-ヿ㐀-鿿가-힯]/.test(kw);
+  const size = kw.length > 18 ? 64 : kw.length > 10 ? 76 : 88;
+  return `<!doctype html><html><head><meta charset="utf-8"><style>
+${(st.fontFaces || []).join('\n')}
+html,body{margin:0;width:${W}px;height:${H}px;overflow:hidden;background:transparent}
+.shade{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.55) 0%,rgba(0,0,0,.18) 32%,rgba(0,0,0,0) 55%)}
+.wrap{position:absolute;left:120px;bottom:96px;color:#fff;font-family:${st.fontBody}}
+.eyebrow{font-size:26px;letter-spacing:.16em;text-transform:uppercase;color:${st.accent};font-weight:700;margin-bottom:14px;text-shadow:0 2px 12px rgba(0,0,0,.5)}
+.kw{font-family:${st.fontHeading};font-weight:${st.headingWeight};font-size:${size}px;line-height:1.1;letter-spacing:${cjk ? 0 : '-.02em'};text-shadow:0 4px 24px rgba(0,0,0,.55)}
+.bar{width:120px;height:6px;background:${st.accent};margin-top:22px;border-radius:3px}
+</style></head><body><div class="shade"></div><div class="wrap"><div class="eyebrow">${esc(brief.product)}</div><div class="kw">${esc(kw)}</div><div class="bar"></div></div></body></html>`;
 }

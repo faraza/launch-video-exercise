@@ -50,15 +50,18 @@ log('brief', `${brief.product} | ${brief.tagline} | tone=${brief.tone} | ${brief
 
 // 3. produce. Clips (slow, remote) start first; cards render locally meanwhile.
 const segs = new Array(brief.shots.length);
-const screenIdx = brief.shots.map((s, i) => (s.kind === 'screen' ? i : -1)).filter(i => i >= 0);
+const screenIdx = brief.shots.map((s, i) => (s.kind === 'screen' || s.kind === 'scene' ? i : -1)).filter(i => i >= 0);
 
 // Policy: the video model animates only the hero shot (big type survives generation; dense
 // body text does not). Other screen shots use pixel-faithful ffmpeg motion. SEEDANCE_ALL_SHOTS=1 overrides.
-let aiIdx = process.env.SEEDANCE_ALL_SHOTS === '1' ? screenIdx : screenIdx.slice(0, 1);
+// Generated scenes (text-to-video) are all animated; legacy screenshot shots only the hero.
+let aiIdx = screenIdx.filter(i => brief.shots[i].kind === 'scene');
+const legacy = screenIdx.filter(i => brief.shots[i].kind === 'screen');
+aiIdx = aiIdx.concat(process.env.SEEDANCE_ALL_SHOTS === '1' ? legacy : legacy.slice(0, 1));
 // CJK glyphs do not survive the video model even at headline size (seen on stripe.com/jp),
 // so Chinese/Japanese/Korean sites keep pixel-faithful ffmpeg motion for every shot.
 const cjk = /^(zh|ja|ko)/i.test(brief.language || '') || /[぀-ヿ㐀-鿿가-힯]/.test(brief.tagline || '');
-if (cjk && process.env.SEEDANCE_CJK !== '1' && aiIdx.length) { log('seedance', `CJK site (${brief.language}): ffmpeg motion keeps the text intact`); aiIdx = []; }
+if (cjk && process.env.SEEDANCE_CJK !== '1') { aiIdx = aiIdx.filter(i => brief.shots[i].kind !== 'screen'); }
 
 let clipsPromise = Promise.resolve({});
 if (!opts.noClips && hasArk() && aiIdx.length) {
@@ -72,7 +75,7 @@ if (!opts.noClips && hasArk() && aiIdx.length) {
 }
 
 const cards = await renderCards(brief, cap, workDir, outDir);
-for (const [i, f] of Object.entries(cards)) segs[i] = f;
+for (const [i, f] of Object.entries(cards)) if (!i.startsWith('ov')) segs[i] = f;
 
 const clips = await clipsPromise;
 for (const i of screenIdx) {
@@ -80,7 +83,7 @@ for (const i of screenIdx) {
 }
 
 // 4. assemble
-const segments = brief.shots.map((s, i) => ({ file: segs[i], duration: s.duration }));
+const segments = brief.shots.map((s, i) => ({ file: segs[i], duration: s.duration, overlay: cards[`ov${i}`] || null }));
 const total = await assemble(segments, brief, path.join(outDir, 'video.mp4'));
 await fs.writeFile(path.join(outDir, 'caption.txt'), brief.caption.trim() + '\n');
 log('done', `${(elapsedMs() / 1000).toFixed(0)}s total, video ${total.toFixed(1)}s -> ${outDir}`);

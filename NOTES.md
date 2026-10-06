@@ -52,27 +52,28 @@ Four stages; each reads and writes files in `<out_dir>/work/`, so any one can be
    `capture.json`. No interpretation happens here.
 2. **understand** (`src/stages/understand.js`, Claude via the Anthropic SDK). Sends the capture
    summary plus up to 4 downscaled screenshots and asks for a *brief* as structured JSON
-   (`output_config.format` with a JSON schema): product, tagline, audience, tone (picks the music),
-   language, card colors, a fixed 6-shot story (title → screen → point → screen → point → cta) with
-   all on-screen copy in the site's language, a camera prompt per screenshot, and the caption.
-   `src/lib/brief.js` validates and normalizes whatever comes back and clamps total length to ~20s.
-   Without a key, or if Claude fails, `heuristicBrief()` builds the same shape from the h1, meta
-   description, section headings and the most button-like CTA, so the pipeline still completes.
+   (`output_config.format` with a JSON schema): product, tagline, audience, 3–6 distilled
+   keywords, tone (picks the music), language, card colors plus a palette hint, the caption, and a
+   fixed 5-shot story: title card → three generated *scenes* → cta card. Each scene has the one
+   idea to show, a 40–80 word cinematic text-to-video prompt (subject, action, setting, camera,
+   light, site palette; explicitly no text/logos/UI), one keyword caption, and a fallback
+   screenshot + motion. `src/lib/brief.js` validates whatever comes back and clamps total length
+   to ~20s. Without a key, or if Claude fails, `heuristicBrief()` builds the same shape from the
+   h1, meta description and section headings (fallback path only: screenshots with motion).
 3. **produce**. Runs in parallel:
-   - the *hero* screen shot → **Seedance** image-to-video (`src/stages/seedance.js`, Ark
-     `contents/generations/tasks` API, screenshot as first frame, 5s, 16:9). The client tries
-     1080p → 720p → 480p and both parameter styles (top-level fields for 2.x, inline `--flags` for
-     1.0) until the model accepts; polls with a hard timeout; retries network errors. Any failure
-     falls back to **ffmpeg motion** (`src/stages/motion.js`): zoom-in/zoom-out via `zoompan`, or a
-     top-to-bottom `scroll` of the full-page screenshot.
-   - the *second* screen shot always uses ffmpeg motion. Tested finding: the video model keeps big
-     headlines crisp but garbles dense body text after ~3s, so it only gets the hero
-     (`SEEDANCE_ALL_SHOTS=1` to override).
-   - *text* shots → **cards** (`src/stages/cards.js`): HTML in the site's bg/fg/accent, heading font
-     (site `@font-face` files are proxied with a CORS header so they load), logo, word-by-word
-     reveal. Frames are captured deterministically by pausing the Web Animations clock and seeking
-     to each frame time, then encoded with ffmpeg. The poster is the title card's final frame.
-4. **assemble** (`src/stages/assemble.js`, ffmpeg). Normalizes every segment to 1080p30, chains
+   - *scenes* → **Seedance text-to-video** (`src/stages/seedance.js`, Ark API, 5s, 16:9). All
+     three are submitted at once; if the account's concurrency limit pushes back, submissions queue
+     and retry every 10s. The client tries 1080p → 720p → 480p and both parameter styles until the
+     model accepts; polls with a hard timeout; retries network errors. A scene that fails falls back
+     to **ffmpeg motion** on its fallback screenshot (`src/stages/motion.js`).
+   - *keyword overlays* and *cards* (`src/stages/cards.js`): transparent PNG per scene (product
+     eyebrow in the accent color + one keyword in the site's heading font over a soft bottom
+     gradient) and the title/cta cards in the site's bg/fg/accent with logo and word-by-word reveal.
+     Frames are captured deterministically by pausing the Web Animations clock. Poster = title card.
+   - Why no screenshots in the main cut: they read as cheap, and the video model mangles small
+     text and CJK glyphs. Screenshots now exist only so the pipeline never fails to produce output.
+4. **assemble** (`src/stages/assemble.js`, ffmpeg). Normalizes every segment to 1080p30 (footage
+   is cover-cropped, cards padded), composites each keyword overlay with a fade in/out, chains
    0.5s crossfades, trims the chosen music loop (`assets/music/` by tone) to length with fade
    in/out, encodes H.264 + AAC with faststart. Writes `caption.txt` from the brief.
 
@@ -83,7 +84,8 @@ Measured runs (Windows, proxied network):
 | playwright.dev | 11s | off | 45s |
 | moonshot.cn (zh) | 10s | off | 45s |
 | personio.de (de) | 13s | off | 69s |
-| linear.app | 8s | 153s (2.0 fast, 720p) | 190s |
+| linear.app | 8s | 153s (2.0 fast, 720p, old screenshot i2v) | 190s |
+| robotruck.jp | 19s | 3 × t2v in parallel, 111–136s (2.0 mini, 720p) | 180s |
 
 Seedance timings for one 5s clip from the same screenshot: `2-0-fast` 720p 143–161s,
 `2-0-mini` 720p 118s (similar sharpness, now the default), `2-0-fast` 480p 100s (864×496 output,
@@ -102,6 +104,11 @@ Dev helpers (never print keys): `node src/_keytest.mjs` (Anthropic key + models)
 
 ## What I cut
 
+- Screenshot-driven shots in the main cut (first version). Replaced by generated scenes once it
+  was clear that screenshots look cheap and that the video model cannot keep UI text intact.
+- Seedance-generated audio (`generate_audio`): each 5s clip would get its own ambience that does
+  not stitch across cuts, and the clips lose sync with crossfades. Music stays a tone-matched loop
+  chosen by Claude (upbeat / driving / chill), which has varied correctly across every test site.
 - Voice-over / TTS: the brief has the copy, but syncing speech to 3s cards needs timing work.
 - Scene-level animation beyond cards (device mockups, cursor paths): the site screenshot plus
   camera motion carries the "looks like the site" requirement at much lower risk.
@@ -138,6 +145,8 @@ Dev helpers (never print keys): `node src/_keytest.mjs` (Anthropic key + models)
 
 ## With another day
 
+- Generated music: a music model (or a longer library keyed by genre) so a logistics company,
+  a payments API and a video community do not share three loops.
 - A second Claude pass that *watches* the finished contact sheet and critiques copy length,
   contrast and shot choice, then regenerates the brief once.
 - Logo-aware cards (vector logo scaled and recolored), and an end card that mirrors the site's

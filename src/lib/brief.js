@@ -21,7 +21,7 @@
 
 export const TONES = ['upbeat', 'driving', 'chill'];
 export const MOTIONS = ['zoom-in', 'zoom-out', 'scroll'];
-export const KINDS = ['title', 'screen', 'point', 'cta'];
+export const KINDS = ['title', 'scene', 'screen', 'point', 'cta'];
 
 export function luminance(hex) {
   const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || '');
@@ -79,11 +79,10 @@ export function heuristicBrief(cap) {
     language: (cap.lang || 'en').slice(0, 2),
     style: styleFromCapture(cap),
     shots: [
-      { kind: 'title', headline: trim(h1, 70), sub: trim(sub, 110), duration: 3.5 },
-      { kind: 'screen', shot: shots[0], motion: 'zoom-in', caption: '', duration: 4.5, prompt: '' },
-      { kind: 'point', headline: points[0]?.text || trim(sub, 60), sub: '', duration: 3 },
-      { kind: 'screen', shot: 'fullpage.png', motion: 'scroll', caption: '', duration: 5, prompt: '' },
-      { kind: 'point', headline: points[1]?.text || product, sub: '', duration: 3 },
+      { kind: 'title', headline: trim(h1, 60), sub: trim(sub, 90), duration: 3 },
+      { kind: 'scene', keyword: points[0]?.text ? trim(points[0].text, 28) : product, concept: '', prompt: '', shot: shots[0], motion: 'zoom-in', duration: 5 },
+      { kind: 'scene', keyword: points[1]?.text ? trim(points[1].text, 28) : trim(sub, 28), concept: '', prompt: '', shot: shots.length > 1 ? 'fullpage.png' : shots[0], motion: 'scroll', duration: 5 },
+      { kind: 'scene', keyword: cap.ctas[0]?.text ? trim(cap.ctas[0].text, 28) : host, concept: '', prompt: '', shot: shots[Math.min(2, shots.length - 1)], motion: 'zoom-out', duration: 5 },
       { kind: 'cta', headline: ctaText, sub: host, duration: 3.5 },
     ],
     caption: `${product}: ${trim(sub, 160)} ${cap.finalUrl || cap.url}`.trim(),
@@ -112,7 +111,7 @@ export function validateBrief(b, cap) {
     .map(s => {
       const d = Number(s.duration);
       s.duration = Number.isFinite(d) ? Math.min(Math.max(d, 2), 8) : 3.5;
-      if (s.kind === 'screen') {
+      if (s.kind === 'screen' || s.kind === 'scene') {
         if (!files.has(s.shot)) s.shot = cap.shots[0].file;
         if (s.shot === 'fullpage.png') s.motion = 'scroll';
         else if (!MOTIONS.includes(s.motion) || s.motion === 'scroll') s.motion = 'zoom-in';
