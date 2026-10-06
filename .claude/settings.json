@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "deny": [
+      "WebFetch(domain:letsbrag.app)",
+      "WebFetch(domain:latent-spaces.github.io)",
+      "WebFetch(domain:skills.sh)",
+      "Bash(git clone https://github.com/latent-spaces:*)",
+      "Bash(git clone git@github.com:latent-spaces:*)",
+      "Bash(gh repo clone latent-spaces:*)",
+      "Bash(npx skills:*)",
+      "Bash(claude plugin:*)",
+      "Bash(codex plugin:*)"
+    ]
+  }
+}
