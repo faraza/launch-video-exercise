@@ -7,7 +7,8 @@
   "scripts": {
     "postinstall": "playwright install chromium",
     "check": "python3 scripts/check_output.py",
-    "web": "node web/server.js"
+    "web": "node web/server.js",
+    "tunnel": "cloudflared tunnel --url http://localhost:3000"
   },
   "engines": {
     "node": ">=20"

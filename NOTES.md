@@ -31,6 +31,13 @@ the caption sits under the player. It shells out to `src/index.js` and serves `o
 one run at a time; finished runs are rehydrated on restart. The CLI is the deliverable; this is
 only a viewer (`web/server.js`, no dependencies).
 
+Public URL without deploying anywhere: keep `npm run web` running, then in a second terminal
+`npm run tunnel` (needs `cloudflared`: `winget install Cloudflare.cloudflared` / `brew install
+cloudflared`). It prints a `https://<random>.trycloudflare.com` address that proxies to the local
+server; the machine, its keys and its proxy stay where they are. The address changes on every
+restart. Set `WEB_PASSWORD` in `.env` first: the cover page then asks for an access code, so a
+leaked link cannot burn API credit.
+
 Debug flags (bypass the wrapper): `node src/index.js <url> <out> [--no-ai] [--no-clips] [--brief file.json]`.
 
 ## How it works

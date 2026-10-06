@@ -2,6 +2,7 @@
 // `node src/index.js <url> out/web/<id>` and the page polls the log until done,
 // then shows video.mp4, poster.png and caption.txt. No extra dependencies.
 //   npm run web   ->  http://localhost:3000
+import 'dotenv/config';
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -11,6 +12,8 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'out', 'web');
 const PORT = Number(process.env.PORT || 3000);
+// Optional shared passphrase (WEB_PASSWORD in .env) so a public tunnel cannot be used to burn API credit.
+const PASSWORD = process.env.WEB_PASSWORD || '';
 const jobs = new Map(); // id -> { url, status, log, outDir, started }
 let running = null;
 
@@ -34,6 +37,7 @@ function start(req, res) {
     let url;
     try { url = new URL(JSON.parse(body).url.trim()); } catch { return json(res, 400, { error: 'invalid url' }); }
     if (!/^https?:$/.test(url.protocol)) return json(res, 400, { error: 'http(s) only' });
+    if (PASSWORD && (JSON.parse(body).password || '') !== PASSWORD) return json(res, 401, { error: 'wrong password' });
     if (running) return json(res, 409, { error: 'a run is already in progress', id: running });
     const id = `${url.hostname.replace(/[^a-z0-9.-]/gi, '')}-${Date.now().toString(36)}`;
     const outDir = path.join(OUT, id);
@@ -136,7 +140,7 @@ function html(res) {
 <section class="view on" id="cover">
   <h1>Every website deserves a <em>launch video</em>.</h1>
   <p class="lede">Paste a URL. We read the site, decide the story, animate it in the site's own colors and words, and cut it to music. About three minutes.</p>
-  <form id="f"><input id="url" placeholder="https://your-product.com" autocomplete="off" spellcheck="false" required autofocus><button id="go" type="submit">Make video</button></form>
+  <form id="f"><input id="url" placeholder="https://your-product.com" autocomplete="off" spellcheck="false" required autofocus>${PASSWORD ? '<input id="pw" type="password" placeholder="Access code" style="flex:0 0 150px;font-size:15px">' : ''}<button id="go" type="submit">Make video</button></form>
   <div class="hint">1920 × 1080 · 20 seconds · poster + caption included</div>
   <div class="err" id="err"></div>
 </section>
@@ -173,10 +177,11 @@ $('f').onsubmit = async e => {
   let url = $('url').value.trim();
   if (!/^https?:\\/\\//i.test(url)) url = 'https://' + url;
   $('go').disabled = true;
-  const r = await fetch('/run', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url }) });
+  const password = $('pw') ? $('pw').value : '';
+  const r = await fetch('/run', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url, password }) });
   const j = await r.json();
   $('go').disabled = false;
-  if (!r.ok) { $('err').textContent = j.error === 'a run is already in progress' ? 'Another video is being made right now. Try again in a minute.' : 'Please enter a valid website address.'; return; }
+  if (!r.ok) { $('err').textContent = j.error === 'a run is already in progress' ? 'Another video is being made right now. Try again in a minute.' : j.error === 'wrong password' ? 'Wrong access code.' : 'Please enter a valid website address.'; return; }
   history.pushState({}, '', '/result/' + j.id);
   runProgress(j.id, url);
 };
