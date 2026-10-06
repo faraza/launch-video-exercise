@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Blocks commits that contain API-key-looking strings or a .env file.
+set -euo pipefail
+files=$(git diff --cached --name-only --diff-filter=ACM)
+[ -z "$files" ] && exit 0
+
+if echo "$files" | grep -Ex '\.env(\..*)?' | grep -vx '.env.example' >/dev/null; then
+  echo "pre-commit: refusing to commit a .env file" >&2; exit 1
+fi
+
+# sk-ant-..., sk-..., Ark UUID keys, generic KEY=<long value>
+pattern='sk-ant-[A-Za-z0-9_-]{20,}|sk-[A-Za-z0-9]{32,}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|(API_KEY|SECRET|TOKEN)[A-Z_]*\s*[=:]\s*["'"'"']?[A-Za-z0-9_\-]{20,}'
+if git diff --cached -U0 -- $files | grep -E '^\+' | grep -Ev '^\+\+\+' | grep -E "$pattern" >/dev/null; then
+  echo "pre-commit: possible API key in staged changes. Move it to .env." >&2
+  git diff --cached -U0 -- $files | grep -E '^\+' | grep -E "$pattern" | cut -c1-120 >&2
+  exit 1
+fi

@@ -1,4 +1,6 @@
 .env
+.env.*
+!.env.example
 out/
 node_modules/
 __pycache__/

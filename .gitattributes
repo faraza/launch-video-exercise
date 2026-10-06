@@ -1,0 +1,5 @@
+# Shell scripts must stay LF or they break on macOS/Linux
+* text=auto eol=lf
+*.png binary
+*.wav binary
+*.mp4 binary

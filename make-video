@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Usage: ./make-video <url> <out_dir>
-# Replace this stub with your tool. Keep the interface: it must write
-# <out_dir>/video.mp4, <out_dir>/poster.png and <out_dir>/caption.txt.
+# Writes <out_dir>/video.mp4, <out_dir>/poster.png, <out_dir>/caption.txt.
+# Thin wrapper: all logic lives in src/ (Node). Works on macOS, Linux, Git Bash.
 set -euo pipefail
 
 if [ "$#" -ne 2 ]; then
@@ -9,5 +9,20 @@ if [ "$#" -ne 2 ]; then
   exit 2
 fi
 
-echo "not built yet: make-video $1 $2" >&2
-exit 1
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "node not found; install Node 20+ (https://nodejs.org)" >&2
+  exit 1
+fi
+if [ ! -d "$HERE/node_modules" ]; then
+  echo "dependencies missing; run: npm install" >&2
+  exit 1
+fi
+if [ ! -f "$HERE/.env" ]; then
+  echo ".env not found; copy .env.example to .env and fill in keys" >&2
+  exit 1
+fi
+
+# Keys are read from .env inside Node (dotenv), never exported into the shell.
+exec node "$HERE/src/index.js" "$1" "$2"
