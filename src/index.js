@@ -54,7 +54,11 @@ const screenIdx = brief.shots.map((s, i) => (s.kind === 'screen' ? i : -1)).filt
 
 // Policy: the video model animates only the hero shot (big type survives generation; dense
 // body text does not). Other screen shots use pixel-faithful ffmpeg motion. SEEDANCE_ALL_SHOTS=1 overrides.
-const aiIdx = process.env.SEEDANCE_ALL_SHOTS === '1' ? screenIdx : screenIdx.slice(0, 1);
+let aiIdx = process.env.SEEDANCE_ALL_SHOTS === '1' ? screenIdx : screenIdx.slice(0, 1);
+// CJK glyphs do not survive the video model even at headline size (seen on stripe.com/jp),
+// so Chinese/Japanese/Korean sites keep pixel-faithful ffmpeg motion for every shot.
+const cjk = /^(zh|ja|ko)/i.test(brief.language || '') || /[぀-ヿ㐀-鿿가-힯]/.test(brief.tagline || '');
+if (cjk && process.env.SEEDANCE_CJK !== '1' && aiIdx.length) { log('seedance', `CJK site (${brief.language}): ffmpeg motion keeps the text intact`); aiIdx = []; }
 
 let clipsPromise = Promise.resolve({});
 if (!opts.noClips && hasArk() && aiIdx.length) {

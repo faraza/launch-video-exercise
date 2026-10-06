@@ -118,6 +118,12 @@ Dev helpers (never print keys): `node src/_keytest.mjs` (Anthropic key + models)
   frame; the 1.2s settle wait is a guess.
 - Very long or very short headlines: the card layout scales font size by length but a 120-char
   h1 in the heuristic path gets truncated with an ellipsis.
+- Geo-redirects follow the machine's IP, not the URL: through a Tokyo exit, `stripe.com` became
+  `stripe.com/jp` and the video came out in Japanese. Correct for that network, surprising if you
+  expected English. Pass the explicit locale URL if a particular version matters.
+- Seedance mangles Chinese/Japanese/Korean glyphs even in the headline (stripe.com/jp hero),
+  where Latin headlines stay crisp. CJK sites therefore skip the video model entirely
+  (`SEEDANCE_CJK=1` to override) and use ffmpeg motion for every screen shot.
 - Seedance alters small UI text despite the prompt (seen: "Full-featured" → "Full-festured" by
   second 4); the fallback motion is always faithful but less alive. Hence hero-only.
 - Seedance content moderation rejects input images that "may contain real person" (bilibili.com's
