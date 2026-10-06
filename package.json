@@ -6,7 +6,8 @@
   "description": "Turn a website URL into a ~20s launch video",
   "scripts": {
     "postinstall": "playwright install chromium",
-    "check": "python3 scripts/check_output.py"
+    "check": "python3 scripts/check_output.py",
+    "web": "node web/server.js"
   },
   "engines": {
     "node": ">=20"
