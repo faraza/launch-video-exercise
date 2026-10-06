@@ -86,6 +86,7 @@ Measured runs (Windows, proxied network):
 | personio.de (de) | 13s | off | 69s |
 | linear.app | 8s | 153s (2.0 fast, 720p, old screenshot i2v) | 190s |
 | robotruck.jp | 19s | 3 × t2v in parallel, 111–136s (2.0 mini, 720p) | 180s |
+| linear.app (scenes) | 27s | 3 × t2v in parallel, 88–93s | 147s |
 
 Seedance timings for one 5s clip from the same screenshot: `2-0-fast` 720p 143–161s,
 `2-0-mini` 720p 118s (similar sharpness, now the default), `2-0-fast` 480p 100s (864×496 output,
