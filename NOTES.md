@@ -78,8 +78,9 @@ Measured runs (Windows, proxied network):
 | personio.de (de) | 13s | off | 69s |
 | linear.app | 8s | 153s (2.0 fast, 720p) | 190s |
 
-Seedance clip generation is 150–160s for one 5s clip on `dreamina-seedance-2-0-fast-260128`; it is
-submitted before the cards render so it overlaps. Bounded by `CLIP_TIMEOUT_MS` (default 6 min),
+Seedance timings for one 5s clip from the same screenshot: `2-0-fast` 720p 143–161s,
+`2-0-mini` 720p 118s (similar sharpness, now the default), `2-0-fast` 480p 100s (864×496 output,
+visibly soft at 1080p, rejected). The clip is submitted before the cards render so it overlaps. Bounded by `CLIP_TIMEOUT_MS` (default 6 min),
 which keeps the worst case under the 10-minute budget. Claude cost per run is ~$0.05 (≈9k input
 tokens, 4 downscaled screenshots); one Seedance clip is well under $1.
 
