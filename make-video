@@ -24,5 +24,8 @@ if [ ! -f "$HERE/.env" ]; then
   exit 1
 fi
 
+# Node's fetch ignores HTTPS_PROXY unless told; harmless when no proxy is set.
+export NODE_USE_ENV_PROXY=1
+
 # Keys are read from .env inside Node (dotenv), never exported into the shell.
 exec node "$HERE/src/index.js" "$1" "$2"
