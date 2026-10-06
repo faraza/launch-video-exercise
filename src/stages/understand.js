@@ -34,9 +34,12 @@ Structure (exactly 6 shots, in this order, durations in seconds):
 6. cta     (3.5)  the site's call to action + domain
 
 Screen shots get a "prompt" for an image-to-video model that animates the screenshot as its first
-frame. Describe only camera motion and subtle ambient movement (slow push-in, gentle parallax,
-cursor drifting, soft light). Keep all UI and text crisp and unchanged. Never ask for new text,
-people, or scene changes. One or two sentences.
+frame. Describe only slow camera motion and subtle ambient movement (gentle push-in of a few
+percent, soft parallax, cursor drifting, soft light). Keep all UI and text crisp and unchanged.
+Never ask for new text, people, or scene changes. One or two sentences. Only the first screen shot
+is animated by the model, so make it the hero (big headline, little body text). The second screen
+shot is animated with a simple pan/zoom, so pick a section that reads well as a still, or use
+"fullpage.png" with motion "scroll" for a tour down the page.
 
 Tone picks the music: "upbeat" bright and friendly, "driving" punchy and technical, "chill" calm and premium.`;
 

@@ -52,10 +52,14 @@ log('brief', `${brief.product} | ${brief.tagline} | tone=${brief.tone} | ${brief
 const segs = new Array(brief.shots.length);
 const screenIdx = brief.shots.map((s, i) => (s.kind === 'screen' ? i : -1)).filter(i => i >= 0);
 
+// Policy: the video model animates only the hero shot (big type survives generation; dense
+// body text does not). Other screen shots use pixel-faithful ffmpeg motion. SEEDANCE_ALL_SHOTS=1 overrides.
+const aiIdx = process.env.SEEDANCE_ALL_SHOTS === '1' ? screenIdx : screenIdx.slice(0, 1);
+
 let clipsPromise = Promise.resolve({});
-if (!opts.noClips && hasArk() && screenIdx.length) {
+if (!opts.noClips && hasArk() && aiIdx.length) {
   const { generateClips } = await import('./stages/seedance.js');
-  clipsPromise = generateClips(brief, cap, workDir, screenIdx).catch(e => {
+  clipsPromise = generateClips(brief, cap, workDir, aiIdx).catch(e => {
     log('seedance', `failed (${e.message.slice(0, 160)}); falling back to motion`);
     return {};
   });

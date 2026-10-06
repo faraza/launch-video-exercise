@@ -26,6 +26,7 @@ export const env = {
   arkKey: process.env.ARK_API_KEY || '',
   arkBaseUrl: (process.env.ARK_BASE_URL || 'https://ark.ap-southeast.bytepluses.com/api/v3').replace(/\/$/, ''),
   seedanceModel: process.env.SEEDANCE_MODEL || 'seedance-1-0-pro-250528',
+  seedanceResolution: process.env.SEEDANCE_RESOLUTION || '', // empty = try 1080p, 720p, 480p
   claudeModel: process.env.CLAUDE_MODEL || 'claude-opus-5-5',
   // Hard budget for AI clip generation; after this we fall back to screenshot motion.
   clipTimeoutMs: Number(process.env.CLIP_TIMEOUT_MS || 6 * 60 * 1000),
