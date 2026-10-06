@@ -24,9 +24,12 @@ Proxy: if the machine reaches the internet through a proxy (`HTTPS_PROXY` set in
 wrapper tells Node to honor it (`NODE_USE_ENV_PROXY=1`). Node's `fetch` otherwise ignores it, and
 api.anthropic.com answers `403 Request not allowed` from unsupported regions.
 
-Web demo (optional, same pipeline): `npm run web` then open http://localhost:3000, paste a URL,
-watch the log, play the result. It shells out to `src/index.js` and serves `out/web/<id>/`; one run
-at a time. The CLI is the deliverable; this is only a viewer.
+Web demo (optional, same pipeline): `npm run web` then open http://localhost:3000. Cover page
+with one URL field → a virtual progress bar (the real log is hidden; stages are timed guesses) →
+`/result/<id>` plays the video with sound, holds on the poster for 10s when it ends, then loops;
+the caption sits under the player. It shells out to `src/index.js` and serves `out/web/<id>/`;
+one run at a time; finished runs are rehydrated on restart. The CLI is the deliverable; this is
+only a viewer (`web/server.js`, no dependencies).
 
 Debug flags (bypass the wrapper): `node src/index.js <url> <out> [--no-ai] [--no-clips] [--brief file.json]`.
 
