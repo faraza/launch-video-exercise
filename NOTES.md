@@ -105,6 +105,9 @@ Dev helpers (never print keys): `node src/_keytest.mjs` (Anthropic key + models)
   h1 in the heuristic path gets truncated with an ellipsis.
 - Seedance alters small UI text despite the prompt (seen: "Full-featured" → "Full-festured" by
   second 4); the fallback motion is always faithful but less alive. Hence hero-only.
+- Seedance content moderation rejects input images that "may contain real person" (bilibili.com's
+  homepage, full of thumbnails with faces). The client stops retrying variants on that error and
+  the hero falls back to ffmpeg motion; the run still finishes in ~45s.
 - The 2.0 fast/mini models reject 1080p; clips come back 1280×720 at 24fps and are upscaled in
   assemble. Slight softness on the hero clip is the price of motion.
 - Card fonts: sites that ship fonts via CSS the browser cannot read cross-origin (or via JS font

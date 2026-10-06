@@ -48,6 +48,8 @@ async function oneClip(shot, index, workDir, deadline) {
       lastErr = e;
       if (!/-> 400/.test(e.message)) throw e; // auth, quota, network: no point retrying variants
       log('seedance', `${a.label} rejected: ${e.message.replace(/^.*-> 400: /, '').slice(0, 90)}`);
+      // Content moderation on the input image will reject every variant; stop early.
+      if (/real person|sensitive|moderation|input image/i.test(e.message)) throw e;
     }
   }
   if (!task) throw lastErr;
