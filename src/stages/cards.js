@@ -75,18 +75,30 @@ function words(s, startDelay = 0.15, step = 0.07) {
     .map((w, i) => `<span class="w" style="animation-delay:${(startDelay + i * step).toFixed(2)}s">${w}</span>`).join(' ');
 }
 
-function logoHtml(cap, fg) {
+function logoHtml(cap) {
   const l = cap.logo;
   if (!l) return '';
   if (l.type === 'svg') return `<div class="logo">${l.svg}</div>`;
   return `<div class="logo"><img src="${esc(l.src)}" alt=""></div>`;
 }
 
+// A wide logo is a wordmark that already says the product name; a square one is an icon.
+function logoIsWordmark(cap) {
+  const l = cap.logo;
+  return !!(l && l.w && l.h && l.w / l.h > 2.2);
+}
+
 export function cardHtml(shot, brief, cap) {
   const st = brief.style;
   const dark = isDark(st.bg);
   const muted = dark ? 'rgba(255,255,255,.72)' : 'rgba(0,0,0,.62)';
-  const headline = shot.headline || brief.tagline || brief.product;
+  let headline = shot.headline || brief.tagline || brief.product;
+  let sub = shot.sub;
+  // Product name is already shown as the eyebrow; never repeat it as the headline.
+  if (shot.kind !== 'cta' && headline.trim().toLowerCase() === (brief.product || '').trim().toLowerCase()) {
+    headline = sub || brief.tagline || headline;
+    sub = sub && headline !== sub ? sub : '';
+  }
   const long = headline.length > 48;
   const size = shot.kind === 'title' ? (long ? 92 : 112) : shot.kind === 'cta' ? 96 : (long ? 84 : 104);
   const cjk = /[぀-ヿ㐀-鿿가-힯]/.test(headline);
@@ -95,14 +107,15 @@ export function cardHtml(shot, brief, cap) {
   let body;
   if (shot.kind === 'title') {
     body = `
-      ${logoHtml(cap, st.fg)}
-      <div class="name a-up" style="animation-delay:.05s">${esc(brief.product)}</div>
+      ${logoHtml(cap)}
+      ${logoIsWordmark(cap) ? '' : `<div class="name a-up" style="animation-delay:.05s">${esc(brief.product)}</div>`}
       <h1 style="font-size:${size}px">${words(headline, 0.25)}</h1>
-      ${shot.sub ? `<p class="sub a-up" style="animation-delay:${(0.4 + headline.split(/\s+/).length * 0.07).toFixed(2)}s">${esc(shot.sub)}</p>` : ''}
+      ${sub ? `<p class="sub a-up" style="animation-delay:${(0.4 + headline.split(/\s+/).length * 0.07).toFixed(2)}s">${esc(sub)}</p>` : ''}
       <div class="bar"></div>`;
   } else if (shot.kind === 'cta') {
     body = `
-      ${logoHtml(cap, st.fg)}
+      ${logoHtml(cap)}
+      ${logoIsWordmark(cap) || !cap.logo ? '' : `<div class="name a-up" style="animation-delay:.05s">${esc(brief.product)}</div>`}
       <h1 style="font-size:${size}px">${words(headline, 0.2)}</h1>
       <div class="btn a-up" style="animation-delay:.7s">${esc(shot.sub || brief.product)}</div>
       <div class="bar"></div>`;
@@ -110,7 +123,7 @@ export function cardHtml(shot, brief, cap) {
     body = `
       <div class="eyebrow a-up" style="animation-delay:.05s">${esc(brief.product)}</div>
       <h1 style="font-size:${size}px">${words(headline, 0.2)}</h1>
-      ${shot.sub ? `<p class="sub a-up" style="animation-delay:.9s">${esc(shot.sub)}</p>` : ''}
+      ${sub ? `<p class="sub a-up" style="animation-delay:.9s">${esc(sub)}</p>` : ''}
       <div class="bar"></div>`;
   }
 

@@ -20,6 +20,10 @@ would run without it.
 Keys live only in `.env` (git-ignored, never exported into the shell, never logged). The pre-commit
 hook refuses commits containing `.env` files or key-shaped strings.
 
+Proxy: if the machine reaches the internet through a proxy (`HTTPS_PROXY` set in the shell), the
+wrapper tells Node to honor it (`NODE_USE_ENV_PROXY=1`). Node's `fetch` otherwise ignores it, and
+api.anthropic.com answers `403 Request not allowed` from unsupported regions.
+
 Debug flags (bypass the wrapper): `node src/index.js <url> <out> [--no-ai] [--no-clips] [--brief file.json]`.
 
 ## How it works

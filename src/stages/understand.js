@@ -26,7 +26,7 @@ Principles
 - Have a point of view: the video should feel like it was made for this product, by someone who gets it.
 
 Structure (exactly 6 shots, in this order, durations in seconds):
-1. title   (3.5)  product name + the one-line promise
+1. title   (3.5)  headline = the one-line promise (NOT the product name; the name is shown automatically), sub = one supporting sentence or empty
 2. screen  (5)    hero or product screenshot, animated
 3. point   (3)    first benefit or who it is for
 4. screen  (5)    a second screenshot (can be "fullpage.png" with motion "scroll" to tour the site)

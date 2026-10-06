@@ -11,7 +11,9 @@ import { log } from '../lib/log.js';
 const VIEWPORT = { width: 1920, height: 1080 };
 const MAX_SHOTS = 6;
 
-const CONSENT_RE = /^(accept( all)?( cookies)?|allow all|i agree|agree|got it|ok(ay)?|continue|dismiss|close|同意|接受|全部接受|我知道了|确定|关闭|akzeptieren|alle akzeptieren|accepter|tout accepter|aceptar|aceitar)$/i;
+// Button text that accepts/dismisses a consent banner, in common languages. Matched against
+// short button labels only, so "accept" inside a paragraph never triggers.
+const CONSENT_RE = /(accept|agree|allow|got it|^ok(ay)?$|dismiss|^close$|understood|同意|接受|我知道了|^确定$|akzeptieren|zustimmen|verstanden|einverstanden|accepter|j'accepte|aceptar|aceitar|accetta|accepteer|akkoord|godkänn|accepter alle|zgadzam|akceptuj|принять|同意する|許可|동의|수락)/i;
 
 export async function capture(url, workDir) {
   const browser = await chromium.launch();
@@ -75,22 +77,56 @@ export async function capture(url, workDir) {
   return info;
 }
 
+// Click the accept button of a cookie banner (main document, shadow roots, and iframes).
+// Prefers "accept all" style buttons; tries twice because many banners mount late.
 async function dismissConsent(page) {
-  try {
-    const clicked = await page.evaluate((reSrc) => {
-      const re = new RegExp(reSrc, 'i');
-      const els = [...document.querySelectorAll('button, [role=button], a')];
-      for (const el of els) {
-        const txt = (el.innerText || el.textContent || '').trim();
-        if (txt.length < 30 && re.test(txt)) {
-          const r = el.getBoundingClientRect();
-          if (r.width > 0 && r.height > 0) { el.click(); return txt; }
-        }
+  const finder = (reSrc) => {
+    const re = new RegExp(reSrc, 'i');
+    const all = [];
+    const walk = (root) => {
+      for (const el of root.querySelectorAll('button, [role=button], a, input[type=button], input[type=submit]')) {
+        all.push(el);
+        if (el.shadowRoot) walk(el.shadowRoot);
       }
-      return null;
-    }, CONSENT_RE.source);
-    if (clicked) { log('capture', `dismissed consent: "${clicked}"`); await page.waitForTimeout(600); }
-  } catch { /* ignore */ }
+      for (const el of root.querySelectorAll('*')) if (el.shadowRoot) walk(el.shadowRoot);
+    };
+    walk(document);
+    const cands = [];
+    for (const el of all) {
+      const txt = (el.innerText || el.value || el.textContent || '').replace(/\s+/g, ' ').trim();
+      if (!txt || txt.length > 40 || !re.test(txt)) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width < 20 || r.height < 14) continue;
+      // Must live inside something that looks like a consent dialog, or be fixed-positioned.
+      let node = el, inDialog = false, depth = 0;
+      while (node && depth++ < 12) {
+        const cs = node instanceof Element ? getComputedStyle(node) : null;
+        const id = node instanceof Element ? `${node.id} ${node.className} ${node.getAttribute?.('aria-label') || ''}` : '';
+        if (cs && (cs.position === 'fixed' || cs.position === 'sticky')) inDialog = true;
+        if (/cookie|consent|gdpr|privacy|banner|cmp|onetrust|didomi|usercentrics|cookiebot|sp_message/i.test(id)) inDialog = true;
+        node = node.parentNode instanceof ShadowRoot ? node.parentNode.host : node.parentElement;
+      }
+      if (!inDialog) continue;
+      const score = (/all|alle|alles|tout|todo|tutti|全部|すべて|모두/i.test(txt) ? 2 : 0) + (el.tagName === 'BUTTON' ? 1 : 0);
+      cands.push({ el, txt, score });
+    }
+    cands.sort((a, b) => b.score - a.score);
+    if (cands[0]) { cands[0].el.click(); return cands[0].txt; }
+    return null;
+  };
+  for (let attempt = 0; attempt < 2; attempt++) {
+    let clicked = null;
+    try { clicked = await page.evaluate(finder, CONSENT_RE.source); } catch { /* navigation etc. */ }
+    if (!clicked) {
+      for (const frame of page.frames()) {
+        if (frame === page.mainFrame()) continue;
+        try { clicked = await frame.evaluate(finder, CONSENT_RE.source); } catch { /* cross-origin frame gone */ }
+        if (clicked) break;
+      }
+    }
+    if (clicked) { log('capture', `dismissed consent: "${clicked}"`); await page.waitForTimeout(800); return; }
+    await page.waitForTimeout(1000);
+  }
 }
 
 async function autoScroll(page) {
