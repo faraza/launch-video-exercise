@@ -45,10 +45,15 @@ Four stages; each reads and writes files in `<out_dir>/work/`, so any one can be
    Without a key, or if Claude fails, `heuristicBrief()` builds the same shape from the h1, meta
    description, section headings and the most button-like CTA, so the pipeline still completes.
 3. **produce**. Runs in parallel:
-   - *screen* shots → **Seedance** image-to-video (`src/stages/seedance.js`, Ark API, screenshot as
-     first frame, 5s, 1080p, 16:9) with a hard timeout; any failure falls back to
-     **ffmpeg motion** (`src/stages/motion.js`): zoom-in/zoom-out via `zoompan`, or a top-to-bottom
-     `scroll` of the full-page screenshot.
+   - the *hero* screen shot → **Seedance** image-to-video (`src/stages/seedance.js`, Ark
+     `contents/generations/tasks` API, screenshot as first frame, 5s, 16:9). The client tries
+     1080p → 720p → 480p and both parameter styles (top-level fields for 2.x, inline `--flags` for
+     1.0) until the model accepts; polls with a hard timeout; retries network errors. Any failure
+     falls back to **ffmpeg motion** (`src/stages/motion.js`): zoom-in/zoom-out via `zoompan`, or a
+     top-to-bottom `scroll` of the full-page screenshot.
+   - the *second* screen shot always uses ffmpeg motion. Tested finding: the video model keeps big
+     headlines crisp but garbles dense body text after ~3s, so it only gets the hero
+     (`SEEDANCE_ALL_SHOTS=1` to override).
    - *text* shots → **cards** (`src/stages/cards.js`): HTML in the site's bg/fg/accent, heading font
      (site `@font-face` files are proxied with a CORS header so they load), logo, word-by-word
      reveal. Frames are captured deterministically by pausing the Web Animations clock and seeking
@@ -57,8 +62,28 @@ Four stages; each reads and writes files in `<out_dir>/work/`, so any one can be
    0.5s crossfades, trims the chosen music loop (`assets/music/` by tone) to length with fade
    in/out, encodes H.264 + AAC with faststart. Writes `caption.txt` from the brief.
 
-Typical run without Seedance: ~30–50s. With Seedance: plus clip generation time (clips are
-submitted first and cards render meanwhile), bounded by `CLIP_TIMEOUT_MS` (default 6 min).
+Measured runs (Windows, proxied network):
+
+| Site | Claude | Seedance | Total |
+|---|---|---|---|
+| playwright.dev | 11s | off | 45s |
+| moonshot.cn (zh) | 10s | off | 45s |
+| personio.de (de) | 13s | off | 69s |
+| linear.app | 8s | 153s (2.0 fast, 720p) | 190s |
+
+Seedance clip generation is 150–160s for one 5s clip on `dreamina-seedance-2-0-fast-260128`; it is
+submitted before the cards render so it overlaps. Bounded by `CLIP_TIMEOUT_MS` (default 6 min),
+which keeps the worst case under the 10-minute budget. Claude cost per run is ~$0.05 (≈9k input
+tokens, 4 downscaled screenshots); one Seedance clip is well under $1.
+
+Model IDs confirmed against the BytePlus endpoint (the server distinguishes "not activated" from
+"does not exist"): `seedance-1-0-pro-250528`, `seedance-1-0-pro-fast-251015`,
+`dreamina-seedance-2-0-260128`, `dreamina-seedance-2-0-fast-260128`,
+`dreamina-seedance-2-0-mini-260615`, `dreamina-seedance-2-5-260628`. Activate the one you set in
+`SEEDANCE_MODEL` in the ModelArk console first.
+
+Dev helpers (never print keys): `node src/_keytest.mjs` (Anthropic key + models),
+`node src/_cliptest.mjs <workDir> [shot.png]` (one Seedance clip), `node src/_captest.mjs <url> <dir>`.
 
 ## What I cut
 
@@ -78,8 +103,12 @@ submitted first and cards render meanwhile), bounded by `CLIP_TIMEOUT_MS` (defau
   frame; the 1.2s settle wait is a guess.
 - Very long or very short headlines: the card layout scales font size by length but a 120-char
   h1 in the heuristic path gets truncated with an ellipsis.
-- Seedance occasionally alters UI text slightly despite the prompt; the fallback motion is always
-  faithful but less alive.
+- Seedance alters small UI text despite the prompt (seen: "Full-featured" → "Full-festured" by
+  second 4); the fallback motion is always faithful but less alive. Hence hero-only.
+- The 2.0 fast/mini models reject 1080p; clips come back 1280×720 at 24fps and are upscaled in
+  assemble. Slight softness on the hero clip is the price of motion.
+- Card fonts: sites that ship fonts via CSS the browser cannot read cross-origin (or via JS font
+  loaders) render cards in the declared fallback stack (e.g. Linear's Inter → system sans).
 - The output check script prints `✗`/`✓`, which fails on a GBK Windows console; run it with
   `PYTHONIOENCODING=utf-8`.
 
