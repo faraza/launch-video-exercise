@@ -26,16 +26,28 @@ export async function generateClips(brief, cap, workDir, screenIdx) {
 async function oneClip(shot, index, workDir, deadline) {
   const img = await fs.readFile(path.join(workDir, shot.shot));
   const prompt = (shot.prompt || 'Slow, smooth push-in on the interface. Keep all text crisp and unchanged.').trim();
-  const dur = shot.duration > 5 ? 10 : 5;
-  const body = {
+  const dur = Math.max(4, Math.min(10, Math.round(shot.duration)));
+  const image = { type: 'image_url', image_url: { url: `data:image/png;base64,${img.toString('base64')}` }, role: 'first_frame' };
+  // Seedance 2.x documents top-level fields; 1.0 documents inline "--flag" text. Try the
+  // structured form first and fall back to inline flags if the endpoint rejects a field.
+  const structured = {
     model: env.seedanceModel,
-    content: [
-      { type: 'text', text: `${prompt} --resolution 1080p --ratio 16:9 --duration ${dur} --watermark false` },
-      { type: 'image_url', image_url: { url: `data:image/png;base64,${img.toString('base64')}` }, role: 'first_frame' },
-    ],
+    content: [{ type: 'text', text: prompt }, image],
+    resolution: '1080p', ratio: '16:9', duration: dur, generate_audio: false, watermark: false,
+  };
+  const inline = {
+    model: env.seedanceModel,
+    content: [{ type: 'text', text: `${prompt} --resolution 1080p --ratio 16:9 --duration ${dur} --watermark false` }, image],
   };
   const t0 = Date.now();
-  const task = await api('POST', '/contents/generations/tasks', body);
+  let task;
+  try {
+    task = await api('POST', '/contents/generations/tasks', structured);
+  } catch (e) {
+    if (!/400/.test(e.message)) throw e;
+    log('seedance', `structured params rejected (${e.message.slice(0, 100)}); retrying inline flags`);
+    task = await api('POST', '/contents/generations/tasks', inline);
+  }
   const id = task.id;
   if (!id) throw new Error(`no task id: ${JSON.stringify(task).slice(0, 200)}`);
   log('seedance', `shot ${index} task ${id} submitted`);
